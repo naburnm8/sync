@@ -22,4 +22,4 @@ target_include_directories(sync PUBLIC include "${CURL_ROOT}/include")
 target_link_directories(sync PRIVATE connect)
 
 add_executable(sync_test test/main.cpp)
-target_link_libraries(sync_test PRIVATE sync curl)
+target_link_libraries(sync_test PRIVATE connect sync curl)

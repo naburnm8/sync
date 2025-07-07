@@ -41,7 +41,7 @@ struct UserPasswordConnectionSettings: public ConnectionSettings {
 
 class NetworkManipulator {
 protected:
-  std::unique_ptr<ConnectionSettings> connectionSettings;
+  std::shared_ptr<ConnectionSettings> connectionSettings;
   CURL* curl = nullptr;
   virtual CURLcode curlPerform(const std::string& remoteResource, CURL* curl) = 0;
   [[nodiscard]] std::string constructUrl(const std::string& remoteResource) const {
@@ -56,6 +56,11 @@ protected:
     return url;
   };
 public:
+  void setSettings(std::shared_ptr<ConnectionSettings> connectionSettings) {
+    this->connectionSettings = std::move(connectionSettings);
+  }
+  NetworkManipulator() = default;
+  explicit NetworkManipulator(std::shared_ptr<ConnectionSettings> connectionSettings) : connectionSettings(std::move(connectionSettings)) {}
   virtual ~NetworkManipulator() = default;
   virtual ConnectCode connect() = 0;
 };
@@ -88,7 +93,7 @@ class Transceiver {
 protected:
   std::unique_ptr<Fetcher> fetcher;
   std::unique_ptr<Sender> sender;
-  virtual void initClients(ConnectionSettings& fetcherSettings, ConnectionSettings& senderSettings) = 0;
+  virtual void initClients(std::shared_ptr<ConnectionSettings> fetcherSettings, std::shared_ptr<ConnectionSettings> senderSettings) = 0;
 public:
   [[nodiscard]] std::tuple<ConnectCode, ConnectCode> connect() const {
     ConnectCode fetcherCode = fetcher->connect();
@@ -107,13 +112,13 @@ public:
   virtual ~Transceiver() = default;
 };
 
-struct FTPSettings : public UserPasswordConnectionSettings {
+struct FTPSettings final : public UserPasswordConnectionSettings {
   bool doUseTLS = false;
   bool doUsePassive = true;
 };
 
 
-class FTPFetcher : public Fetcher {
+class FTPFetcher final : public Fetcher {
 protected:
   CURLcode curlPerform(const std::string& remoteResource, CURL* curl) override;
 
@@ -125,9 +130,30 @@ public:
   ~FTPFetcher() override;
 };
 
-class FTPSender : public Sender {
+class FTPSender final : public Sender {
+protected:
+  CURLcode curlPerform(const std::string &remoteResource, CURL *curl) override;
 
+public:
+  ConnectCode connect() override;
+
+  ConnectCode send(const std::string &url, OperationStatus &buffer) override;
+
+  ~FTPSender() override;
 };
 
+class FTPTransceiver final : public Transceiver {
+protected:
+  void initClients(const std::shared_ptr<ConnectionSettings> fetcherSettings, const std::shared_ptr<ConnectionSettings> senderSettings) override {
+    this->fetcher = std::make_unique<FTPFetcher>();
+    this->fetcher->setSettings(fetcherSettings);
+    this->sender = std::make_unique<FTPSender>();
+    this->sender->setSettings(senderSettings);
+  };
+public:
+  FTPTransceiver(const std::shared_ptr<ConnectionSettings> &fetcherSettings, const std::shared_ptr<ConnectionSettings> &senderSettings) {
+    initClients(fetcherSettings, senderSettings);
+  };
+};
 
 #endif

@@ -8,7 +8,7 @@ CURLcode FTPFetcher::curlPerform(const std::string &remoteResource, CURL *curl) 
     }
     const std::string url = constructUrl(remoteResource);
 
-    if (this->connectionSettings->protocol != "ftp" or this->connectionSettings->protocol != "ftps") throw std::runtime_error("Unsupported protocol: expected ftp or ftps");
+    if (this->connectionSettings->protocol != "ftp" and this->connectionSettings->protocol != "ftps") throw std::runtime_error("Unsupported protocol: expected ftp or ftps");
 
     if (!curl) throw std::runtime_error("Curl null reference");
 
@@ -82,7 +82,6 @@ ConnectCode FTPFetcher::fetch(const std::string &url, OperationStatus &buffer) {
 }
 
 FTPFetcher::~FTPFetcher() {
-    delete this->connectionSettings;
     curl_easy_cleanup(this->curl);
     for (const auto &buffer : this->buffers) {
         delete &buffer;
