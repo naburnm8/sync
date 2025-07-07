@@ -11,6 +11,11 @@ typedef std::vector<char> Buffer;
 
 enum ConnectCode {
   CONNECT_OK = 0,
+  REMOTE_CONNECTION_ERROR = -1,
+  CURL_ALREADY_DEFINED = 1,
+  CURL_NOT_DEFINED = -2,
+  REMOTE_FETCH_ERROR = -3,
+
 };
 
 struct OperationStatus {
@@ -25,6 +30,7 @@ struct ConnectionSettings {
   std::string host;
   unsigned short port;
   std::string protocol;
+  virtual ~ConnectionSettings() = default;
 };
 
 struct UserPasswordConnectionSettings: public ConnectionSettings {
@@ -37,11 +43,20 @@ class NetworkManipulator {
 protected:
   std::unique_ptr<ConnectionSettings> connectionSettings;
   CURL* curl = nullptr;
-  virtual CURLcode curlPerform() = 0;
-  virtual std::string constructUrl(const std::string& pathToResource);
+  virtual CURLcode curlPerform(const std::string& remoteResource, CURL* curl) = 0;
+  [[nodiscard]] std::string constructUrl(const std::string& remoteResource) const {
+    if (this->connectionSettings == nullptr) {
+      throw std::runtime_error("No connection settings available");
+    }
+    std::string url = this->connectionSettings->protocol + "://" + this->connectionSettings->host;
+    if (this->connectionSettings->port != 0) {
+      url += ":" + std::to_string(this->connectionSettings->port);
+    }
+    url += "/" + remoteResource;
+    return url;
+  };
 public:
   virtual ~NetworkManipulator() = default;
-
   virtual ConnectCode connect() = 0;
 };
 
@@ -56,7 +71,6 @@ protected:
     auto *vec = static_cast<Buffer*> (data);
     size_t ssize = size*nmemb;
     std::copy(static_cast<char *>(buff), static_cast<char *>(buff)+ssize, std::back_inserter(*vec));
-
     return ssize;
   };
 public:
@@ -74,6 +88,7 @@ class Transceiver {
 protected:
   std::unique_ptr<Fetcher> fetcher;
   std::unique_ptr<Sender> sender;
+  virtual void initClients(ConnectionSettings& fetcherSettings, ConnectionSettings& senderSettings) = 0;
 public:
   [[nodiscard]] std::tuple<ConnectCode, ConnectCode> connect() const {
     ConnectCode fetcherCode = fetcher->connect();
@@ -92,6 +107,27 @@ public:
   virtual ~Transceiver() = default;
 };
 
+struct FTPSettings : public UserPasswordConnectionSettings {
+  bool doUseTLS = false;
+  bool doUsePassive = true;
+};
+
+
+class FTPFetcher : public Fetcher {
+protected:
+  CURLcode curlPerform(const std::string& remoteResource, CURL* curl) override;
+
+public:
+  ConnectCode connect() override;
+
+  ConnectCode fetch(const std::string &url, OperationStatus &buffer) override;
+
+  ~FTPFetcher() override;
+};
+
+class FTPSender : public Sender {
+
+};
 
 
 #endif
