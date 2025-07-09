@@ -83,7 +83,4 @@ ConnectCode FTPFetcher::fetch(const std::string &url, OperationStatus &buffer) {
 
 FTPFetcher::~FTPFetcher() {
     curl_easy_cleanup(this->curl);
-    for (const auto &buffer : this->buffers) {
-        delete &buffer;
-    }
 }

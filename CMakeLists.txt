@@ -16,10 +16,13 @@ add_library(connect STATIC src/connect.cpp)
 target_include_directories(connect PUBLIC include "${CURL_ROOT}/include")
 target_link_directories(connect PRIVATE curl)
 
+add_library(settings STATIC src/settings.cpp)
+target_include_directories(settings PUBLIC include "${CURL_ROOT}/include")
+
 
 add_library(sync STATIC src/library.cpp)
 target_include_directories(sync PUBLIC include "${CURL_ROOT}/include")
-target_link_directories(sync PRIVATE connect)
+target_link_directories(sync PRIVATE connect settings)
 
 add_executable(sync_test test/main.cpp)
-target_link_libraries(sync_test PRIVATE connect sync curl)
+target_link_libraries(sync_test PRIVATE settings connect sync curl)
